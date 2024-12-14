@@ -1,20 +1,31 @@
-<script>
+<script lang="ts">
 	import { onMount } from 'svelte';
 	import osmtogeojson from 'osmtogeojson';
 	import L from 'leaflet';
 	import 'leaflet/dist/leaflet.css';
 
-	async function fetchElements(lat, lon) {
-		const response = await fetch('https://overpass-api.de/api/interpreter', {
-			method: 'POST',
-			body: `
+	function getBounds(map: L.Map) {
+		const bounds = map.getBounds();
+		const ne = bounds.getNorthEast();
+		const sw = bounds.getSouthWest();
+		return { ne, sw };
+	}
+
+	// min lat, min lon, max lat, max lon
+	async function fetchElements(nw: L.LatLng, se: L.LatLng) {
+		const coordString = `${se.lat},${nw.lng},${nw.lat},${se.lng}`;
+		const body = `
       [out:json][timeout:10];
       (
-        way["building"](49.2754,-123.1322,49.2904,-123.1147); // Downtown Vancouver bounding box
-        relation["building"](49.2754,-123.1322,49.2904,-123.1147);
+        way["building"](${coordString}); // Downtown Vancouver bounding box
+        relation["building"](${coordString});
       );
       out geom;
-      `
+      `;
+		console.log(body);
+		const response = await fetch('https://overpass-api.de/api/interpreter', {
+			method: 'POST',
+			body
 		});
 
 		const data = await response.json();
@@ -24,14 +35,27 @@
 	}
 
 	onMount(async () => {
-		const map = L.map('map').setView([49.24966, -123.11934], 13);
+		const map = L.map('map').setZoom(19).setView([49.2827, -123.1207]);
 		L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
-			maxZoom: 19,
 			attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 		}).addTo(map);
 
-		const elements = await fetchElements(49.24966, -123.11934);
+		const bounds = map.getBounds();
+		const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
 		L.geoJSON(elements).addTo(map);
+
+		map.on('dragend', async () => {
+			const bounds = map.getBounds();
+			map.fitBounds(bounds);
+			const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
+			L.geoJSON(elements).addTo(map);
+		});
+
+		map.on('zoomend', async () => {
+			const bounds = map.getBounds();
+			const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
+			L.geoJSON(elements).addTo(map);
+		});
 	});
 </script>
 
