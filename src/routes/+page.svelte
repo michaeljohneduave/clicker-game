@@ -1,8 +1,10 @@
 <script lang="ts">
+	import * as turf from '@turf/turf';
 	import { onMount } from 'svelte';
 	import osmtogeojson from 'osmtogeojson';
 	import L from 'leaflet';
 	import 'leaflet/dist/leaflet.css';
+	import { bboxToLatLngBounds } from '../utils/helpers';
 
 	function getBounds(map: L.Map) {
 		const bounds = map.getBounds();
@@ -40,22 +42,12 @@
 			attribution: '&copy; <a href="http://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 		}).addTo(map);
 
-		const bounds = map.getBounds();
+		const center = map.getCenter();
+
+		const circle = turf.circle([center.lng, center.lat], 0.5, { units: 'kilometers' });
+		const bounds = bboxToLatLngBounds(turf.bbox(circle));
 		const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
 		L.geoJSON(elements).addTo(map);
-
-		map.on('dragend', async () => {
-			const bounds = map.getBounds();
-			map.fitBounds(bounds);
-			const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
-			L.geoJSON(elements).addTo(map);
-		});
-
-		map.on('zoomend', async () => {
-			const bounds = map.getBounds();
-			const elements = await fetchElements(bounds.getNorthWest(), bounds.getSouthEast());
-			L.geoJSON(elements).addTo(map);
-		});
 	});
 </script>
 
