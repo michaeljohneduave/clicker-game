@@ -10,6 +10,13 @@ export default $config({
     };
   },
   async run() {
-    new sst.aws.SvelteKit("MyWeb");
+    const vpc = new sst.aws.Vpc("Vpc");
+    const db = new sst.aws.Postgres("Db", {
+      vpc
+    });
+    const web = new sst.aws.SvelteKit("Web", {
+      link: [db],
+      vpc
+    });
   },
 });
